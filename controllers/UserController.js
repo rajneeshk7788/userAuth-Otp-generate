@@ -1,13 +1,15 @@
 import UserModel from "../models/UserSchema.js";
 import bcrypt from "bcrypt";
+import sendEmailVerificationOTP from "../utils/SendEmailVerificationOnOTP.js";
+import EmailVerificationModel from "../models/EmailVerification.js";
 
-const UserRegister = async(req, res) => {
+const UserRegister = async (req, res) => {
     const { name, email, phone, password, conPassword } = req.body;
     if (!name || !email || !phone || !password || !conPassword) {
         return res.status(400).json({ message: "Please fill all the fields" })
     }
-    if (password !== conPassword){
-        return res.status(400).json({msg:"Password and confirm password do not match"})
+    if (password !== conPassword) {
+        return res.status(400).json({ msg: "Password and confirm password do not match" })
     }
 
     if (email.length < 5 || !email.includes("@")) {
@@ -20,7 +22,7 @@ const UserRegister = async(req, res) => {
     if (password.length < 6) {
         return res.status(400).json({ message: "Password must be at least 6 characters long" })
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const hashedConPassword = await bcrypt.hash(conPassword, 10);
 
@@ -28,12 +30,15 @@ const UserRegister = async(req, res) => {
         name,
         email,
         phone,
-        password:hashedPassword,
-        conPassword:hashedConPassword
+        password: hashedPassword,
+        conPassword: hashedConPassword
     })
+
+    sendEmailVerificationOTP(req, user);
+
     try {
         await user.save();
-        res.status(201).json({msg:"User registered successfully"}, user )
+        res.status(201).json({ msg: "User registered successfully" }, user)
     } catch (error) {
         res.send("User registered successfully", user);
     }
@@ -48,5 +53,30 @@ const getAllUsers = async (req, res) => {
     }
 };
 
+const emailVerification = async (req, res) => {
+    const { email, otp } = req.body;
+    console.log("13354>>>>>>>>>>>>>>", email, otp);
+    if (!email || !otp) {
+        return res.status(400).json({ message: "Please fill all the fields" })
+    }
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+        return res.status(400).json({ message: "User not found" });
+    }
 
-export { UserRegister, getAllUsers };
+    const emailVerification = await EmailVerificationModel.find({ userId: user._id });
+    console.log("emailVerification", emailVerification);
+
+    if (Number(emailVerification.otp) !== Number(otp)) {
+        return res.status(400).json({ message: "Invalid OTP" })
+    }
+    if (emailVerification.otp === otp) {
+        user.isVerified = true;
+        await emailVerification.save();
+        return res.status(200).json({ message: "Email verified successfully" })
+    }
+    return res.status(400).json({ message: "Invalid dsfjkfjahfOTP" })
+}
+
+
+export { UserRegister, getAllUsers, emailVerification };

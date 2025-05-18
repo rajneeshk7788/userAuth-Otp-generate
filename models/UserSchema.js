@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
     // address :{type:String,  required:true },
     // isAdmin :{type:Boolean,  default:false },
     conPassword :{type:String,  required:true },
+    isVerified :{type:Boolean,  default:false },
 })
 
 
