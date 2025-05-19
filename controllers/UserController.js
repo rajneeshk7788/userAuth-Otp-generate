@@ -54,29 +54,50 @@ const getAllUsers = async (req, res) => {
 };
 
 const emailVerification = async (req, res) => {
-    const { email, otp } = req.body;
-    console.log("13354>>>>>>>>>>>>>>", email, otp);
-    if (!email || !otp) {
+    const { otp } = req.body;
+    if (!otp) {
+        return res.status(400).json({ message: "Please provide an OTP" });
+    }
+
+    try {
+        const verificationRecord = await EmailVerificationModel.findOne({ otp });
+        if (!verificationRecord) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+        const user = await UserModel.findById(verificationRecord.userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        user.isVerified = true;
+        await user.save();
+        await EmailVerificationModel.deleteMany({ userId: user._id });
+
+        res.status(200).json({ message: "Email verified successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Error verifying email" });
+    }
+};
+
+const logIn = async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
         return res.status(400).json({ message: "Please fill all the fields" })
     }
-    const user = await UserModel.findOne({ email });
-    if (!user) {
-        return res.status(400).json({ message: "User not found" });
+    try {
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" })
+        }
+        const isMatch = await bcrypt.compare(password, user.password);ss
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid credentials" })
+        }
+        res.status(200).json({ message: "Login successful", user });
+    } catch (error) {
+        res.status(500).json({ message: "Error logging in" });
     }
-
-    const emailVerification = await EmailVerificationModel.find({ userId: user._id });
-    console.log("emailVerification", emailVerification);
-
-    if (Number(emailVerification.otp) !== Number(otp)) {
-        return res.status(400).json({ message: "Invalid OTP" })
-    }
-    if (emailVerification.otp === otp) {
-        user.isVerified = true;
-        await emailVerification.save();
-        return res.status(200).json({ message: "Email verified successfully" })
-    }
-    return res.status(400).json({ message: "Invalid dsfjkfjahfOTP" })
-}
+};
 
 
-export { UserRegister, getAllUsers, emailVerification };
+export { UserRegister, getAllUsers, emailVerification, logIn };
